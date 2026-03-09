@@ -25,3 +25,6 @@
 
 #define ALAMANG 2000.0
 #define SALT 1000.0
+
+#define BUTTON_PIN 2
+#define SWITCH_PIN 3
