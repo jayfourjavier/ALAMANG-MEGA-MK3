@@ -160,32 +160,6 @@ float readTemperature(byte validEntries = 5)
   return sum / count;
 }
 
-void setup()
-{
-  Serial.begin(9600);
-  Serial.println();
-  Serial.println(__FILE__);
-  Serial.print("HX711_LIB_VERSION: ");
-  Serial.println(HX711_LIB_VERSION);
-  Serial.println();
-
-  pinMode(MOTOR_PWM_PIN, OUTPUT);
-  pinMode(HEATER_RELAY_PIN, OUTPUT);
-  digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
-
-  turnOnHeater();
-
-  dht.begin();
-
-  // HX711 must always start
-  myScale.begin(SCALE_DAT_PIN, SCALE_CLK_PIN);
-
-#if !TO_CALIBRATE
-  myScale.set_offset(SCALE_OFFSET);
-  myScale.set_scale(SCALE_CALIBRATION_FACTOR);
-#endif
-}
-
 bool isShrimpEnough()
 {
   return CurrentWeight >= TargetShrimpWeight;
@@ -261,8 +235,67 @@ void mainController()
   }
 }
 
+#define SALT_STEPPER_DIR_PIN 50
+#define SALT_STEPPER_PUL_PIN 51
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println();
+  Serial.println(__FILE__);
+  Serial.print("HX711_LIB_VERSION: ");
+  Serial.println(HX711_LIB_VERSION);
+  Serial.println();
+
+  pinMode(MOTOR_PWM_PIN, OUTPUT);
+  pinMode(HEATER_RELAY_PIN, OUTPUT);
+  digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
+  pinMode(SALT_STEPPER_DIR_PIN, OUTPUT);
+  pinMode(SALT_STEPPER_PUL_PIN, OUTPUT);
+
+  turnOnHeater();
+
+  dht.begin();
+
+  // HX711 must always start
+  myScale.begin(SCALE_DAT_PIN, SCALE_CLK_PIN);
+
+#if !TO_CALIBRATE
+  myScale.set_offset(SCALE_OFFSET);
+  myScale.set_scale(SCALE_CALIBRATION_FACTOR);
+#endif
+}
+
 void loop()
 {
+
+  digitalWrite(SALT_STEPPER_DIR_PIN, LOW);
+  Serial.println("Moving salt stepper forward...");
+
+  byte pulseInterval = 1; // milliseconds, adjust as needed for speed
+
+  for (int i = 0; i < 200; i++)
+  {
+    Serial.println("HIGH \t Step: " + String(i));
+    digitalWrite(SALT_STEPPER_PUL_PIN, HIGH);
+    delay(pulseInterval);
+    digitalWrite(SALT_STEPPER_PUL_PIN, LOW);
+    delay(pulseInterval);
+  }
+
+  Serial.println("Moving salt stepper backward...");
+  digitalWrite(SALT_STEPPER_DIR_PIN, HIGH);
+
+  for (int i = 0; i < 200; i++)
+  {
+    Serial.println("LOW \t Step: " + String(i));
+    digitalWrite(SALT_STEPPER_PUL_PIN, HIGH);
+    delay(pulseInterval);
+    digitalWrite(SALT_STEPPER_PUL_PIN, LOW);
+    delay(pulseInterval);
+  }
+
+  return;
 
 #if TO_CALIBRATE
   calibrate();

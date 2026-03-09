@@ -17,7 +17,7 @@
 #define SCALE_DAT_PIN 7
 #define MOTOR_PWM_PIN 8
 #define HEATER_RELAY_PIN 9
-#define DHT_PIN 18
+#define DHT_PIN 5
 #define DHT_TYPE DHT22
 
 #define SCALE_OFFSET 96462
@@ -26,5 +26,11 @@
 #define ALAMANG 2000.0
 #define SALT 1000.0
 
-#define BUTTON_PIN 2
-#define SWITCH_PIN 3
+#define BUTTON_PIN 18
+#define SWITCH_PIN 19
+
+#define SHRIMP_STEPPER_RPM 20 // set shrimp stepper speed, adjust as needed
+#define SALT_STEPPER_RPM 20   // set salt stepper speed, adjust as
+
+#define SHRIMP_STEPPER_DIR_PIN 50
+#define SHRIMP_STEPPER_PUL_PIN 51
