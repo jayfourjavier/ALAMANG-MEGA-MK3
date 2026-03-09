@@ -1,8 +1,11 @@
 #include <Arduino.h>
 #include <HX711.h>
 #include <DHT.h>
+#include <AccelStepper.h>
+#include <lcd.h>
 #include <defines.h>
 #include <secrets.h>
+#include <ToggleButton.h>
 
 // try to test pull requests
 
@@ -26,6 +29,11 @@ bool IsHeating = false;
 
 HX711 myScale;
 DHT dht(DHT_PIN, DHT_TYPE);
+
+AccelStepper shrimpStepper(1, STEPPER_SHRIMP_PUL_PIN, STEPPER_SHRIMP_DIR_PIN);
+AccelStepper saltStepper(1, STEPPER_SALT_PUL_PIN, STEPPER_SALT_DIR_PIN);
+LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
+ToggleButton pushButton(BUTTON_PIN, DEBOUNCE_TIME);
 
 void calibrate()
 {
@@ -160,6 +168,18 @@ float readTemperature(byte validEntries = 5)
   return sum / count;
 }
 
+void buttonOn()
+{
+  Serial.println("PROCESS STARTED");
+  // IsWaiting = false;
+}
+
+void buttonOff()
+{
+  Serial.println("PROCESS ABORTED");
+  // IsWaiting = true;
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -173,6 +193,17 @@ void setup()
   pinMode(HEATER_RELAY_PIN, OUTPUT);
   digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
 
+  shrimpStepper.setSpeed(1000);       // set speed for shrimp stepper
+  saltStepper.setSpeed(1000);         // set speed for salt stepper
+  shrimpStepper.setAcceleration(500); // set acceleration for shrimp stepper
+  saltStepper.setAcceleration(500);   // set acceleration for salt stepper
+  saltStepper.setCurrentPosition(0);
+  shrimpStepper.setCurrentPosition(0);
+  saltStepper.moveTo(1000);   // example target
+  shrimpStepper.moveTo(1000); // example target
+
+  pushButton.begin(buttonOn, buttonOff);
+
   turnOnHeater();
 
   dht.begin();
@@ -184,6 +215,9 @@ void setup()
   myScale.set_offset(SCALE_OFFSET);
   myScale.set_scale(SCALE_CALIBRATION_FACTOR);
 #endif
+
+  lcd.begin();
+  lcd.welcome();
 }
 
 bool isShrimpEnough()
@@ -263,46 +297,28 @@ void mainController()
 
 void loop()
 {
+  pushButton.listen();
 
-#if TO_CALIBRATE
-  calibrate();
-  return; // stop after calibration
-#endif
+  saltStepper.run();
+  shrimpStepper.run();
 
+  // 3️⃣ Other non-blocking tasks
   CurrentWeight = readScale();
   Temperature = readTemperature();
   Humidity = readHumidity();
 
   Serial.print("Weight: ");
   Serial.print(CurrentWeight, 2);
-  Serial.print(" g");
-  Serial.print(" \t| Temperature: ");
+  Serial.print(" g\t");
+  Serial.print("Temp: ");
   Serial.print(Temperature, 2);
-  Serial.print(" °C, \t| Humidity: ");
-  Serial.print(Humidity, 2);
-  Serial.print(" %");
+  Serial.print(" C\t");
+  Serial.print("Humidity: ");
+  Serial.println(Humidity, 2);
 
-  Serial.print(" \t | SHRIMP WT: ");
-  ShrimpWeight = CurrentWeight;
-  Serial.print(ShrimpWeight, 2);
-  Serial.print(" g");
+  // 4️⃣ Main controller tasks
+  // mainController();
 
-  SaltWeight = ShrimpWeight * RATIO;
-  Serial.print("\t SALT WT: ");
-  Serial.print(SaltWeight, 2);
-  Serial.println(" g");
-
-  delay(1000);
-
-  // turnOnMixer();
-  // delay(5000);
-  // turnOffMixer();
-  // delay(5000);
-
-  // turnOnHeater();
-  // delay(5000);
-  // turnOffHeater();
-  // delay(5000);
-
-  mainController();
+  // 5️⃣ Optional small delay for loop timing (non-blocking)
+  delay(10);
 }
