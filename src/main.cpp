@@ -5,6 +5,7 @@
 #include <lcd.h>
 #include <defines.h>
 #include <secrets.h>
+#include <ToggleButton.h>
 
 // try to test pull requests
 
@@ -32,6 +33,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 AccelStepper shrimpStepper(1, STEPPER_SHRIMP_PUL_PIN, STEPPER_SHRIMP_DIR_PIN);
 AccelStepper saltStepper(1, STEPPER_SALT_PUL_PIN, STEPPER_SALT_DIR_PIN);
 LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
+ToggleButton pushButton(BUTTON_PIN, DEBOUNCE_TIME);
 
 void calibrate()
 {
@@ -166,6 +168,18 @@ float readTemperature(byte validEntries = 5)
   return sum / count;
 }
 
+void buttonOn()
+{
+  Serial.println("PROCESS STARTED");
+  // IsWaiting = false;
+}
+
+void buttonOff()
+{
+  Serial.println("PROCESS ABORTED");
+  // IsWaiting = true;
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -187,6 +201,8 @@ void setup()
   shrimpStepper.setCurrentPosition(0);
   saltStepper.moveTo(1000);   // example target
   shrimpStepper.moveTo(1000); // example target
+
+  pushButton.begin(buttonOn, buttonOff);
 
   turnOnHeater();
 
@@ -281,9 +297,8 @@ void mainController()
 
 void loop()
 {
-  // 1️⃣ Update stepper targets if needed
+  pushButton.listen();
 
-  // 2️⃣ Call run() for both steppers each loop iteration
   saltStepper.run();
   shrimpStepper.run();
 
@@ -307,75 +322,3 @@ void loop()
   // 5️⃣ Optional small delay for loop timing (non-blocking)
   delay(10);
 }
-
-/*
-
-void loop()
-{
-
-  Serial.println("Testing salt stepper.");
-  saltStepper.move(1000); // example: move salt stepper to position 1000, adjust as needed
-
-  while (saltStepper.distanceToGo() != 0)
-  {
-    Serial.print("Salt Stepper Position: ");
-    Serial.println(saltStepper.currentPosition());
-    saltStepper.run(); // must be called frequently to update stepper position
-    delay(1);          // small delay to prevent overwhelming the CPU, adjust as needed
-  }
-
-  Serial.println("Testing shrimp stepper.");
-  shrimpStepper.move(1000); // example: move shrimp stepper to position 1000, adjust as needed
-  while (shrimpStepper.distanceToGo() != 0)
-  {
-    Serial.print("Shrimp Stepper Position: ");
-    Serial.println(shrimpStepper.currentPosition());
-    shrimpStepper.run(); // must be called frequently to update stepper position
-    delay(1);            // small delay to prevent overwhelming the CPU, adjust as needed
-  }
-
-  return;
-
-#if TO_CALIBRATE
-  calibrate();
-  return; // stop after calibration
-#endif
-
-  CurrentWeight = readScale();
-  Temperature = readTemperature();
-  Humidity = readHumidity();
-
-  Serial.print("Weight: ");
-  Serial.print(CurrentWeight, 2);
-  Serial.print(" g");
-  Serial.print(" \t| Temperature: ");
-  Serial.print(Temperature, 2);
-  Serial.print(" °C, \t| Humidity: ");
-  Serial.print(Humidity, 2);
-  Serial.print(" %");
-
-  Serial.print(" \t | SHRIMP WT: ");
-  ShrimpWeight = CurrentWeight;
-  Serial.print(ShrimpWeight, 2);
-  Serial.print(" g");
-
-  SaltWeight = ShrimpWeight * RATIO;
-  Serial.print("\t SALT WT: ");
-  Serial.print(SaltWeight, 2);
-  Serial.println(" g");
-
-  delay(1000);
-
-  // turnOnMixer();
-  // delay(5000);
-  // turnOffMixer();
-  // delay(5000);
-
-  // turnOnHeater();
-  // delay(5000);
-  // turnOffHeater();
-  // delay(5000);
-
-  mainController();
-}
-  */
