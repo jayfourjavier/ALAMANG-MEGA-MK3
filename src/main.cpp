@@ -2,7 +2,7 @@
 #include <HX711.h>
 #include <DHT.h>
 #include <AccelStepper.h>
-#include <LiquidCrystal_I2C.h>
+#include <lcd.h>
 #include <defines.h>
 #include <secrets.h>
 
@@ -31,7 +31,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 
 AccelStepper shrimpStepper(1, STEPPER_SHRIMP_PUL_PIN, STEPPER_SHRIMP_DIR_PIN);
 AccelStepper saltStepper(1, STEPPER_SALT_PUL_PIN, STEPPER_SALT_DIR_PIN);
-LiquidCrystal_I2C lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
+LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
 
 void calibrate()
 {
@@ -200,10 +200,8 @@ void setup()
   myScale.set_scale(SCALE_CALIBRATION_FACTOR);
 #endif
 
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("Alamang Mega MK3");
+  lcd.begin();
+  lcd.welcome();
 }
 
 bool isShrimpEnough()
