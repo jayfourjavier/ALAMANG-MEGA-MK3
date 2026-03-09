@@ -6,23 +6,6 @@
 
 // try to test pull requests
 
-#define TO_CALIBRATE false // set to true to run calibration routine, false to run normal operation
-
-#define MIXER_SPEED 20 // 0-100%
-
-// adjust pins if needed
-#define SCALE_CLK_PIN 6
-#define SCALE_DAT_PIN 7
-#define MOTOR_PWM_PIN 8
-#define HEATER_RELAY_PIN 9
-#define DHT_PIN 18
-#define DHT_TYPE DHT22
-
-#define SCALE_OFFSET 96462
-#define SCALE_CALIBRATION_FACTOR 168.916992
-
-#define ALAMANG 2000.0
-#define SALT 1000.0
 // #define RATIO (SALT / ALAMANG)  // COMPUTE RATIO BASED ON ALAMANG AND SALT WEIGHTS FROM TRIAL
 
 #define RATIO .5 // OR DEFINE EXPLICITLY IN CODE
