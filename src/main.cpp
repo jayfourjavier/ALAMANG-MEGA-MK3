@@ -6,6 +6,7 @@
 #include <defines.h>
 #include <secrets.h>
 #include <ToggleButton.h>
+#include <ToggleSwitchISR.h>
 
 // try to test pull requests
 
@@ -34,6 +35,7 @@ AccelStepper shrimpStepper(1, STEPPER_SHRIMP_PUL_PIN, STEPPER_SHRIMP_DIR_PIN);
 AccelStepper saltStepper(1, STEPPER_SALT_PUL_PIN, STEPPER_SALT_DIR_PIN);
 LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
 ToggleButton pushButton(BUTTON_PIN, DEBOUNCE_TIME);
+ToggleSwitchISR heaterSwitch(HEATER_SWITCH_PIN, DEBOUNCE_TIME);
 
 void calibrate()
 {
@@ -203,8 +205,7 @@ void setup()
   shrimpStepper.moveTo(1000); // example target
 
   pushButton.begin(buttonOn, buttonOff);
-
-  turnOnHeater();
+  heaterSwitch.begin(turnOnHeater, turnOffHeater);
 
   dht.begin();
 
@@ -298,27 +299,21 @@ void mainController()
 void loop()
 {
   pushButton.listen();
-
+  heaterSwitch.listen();
   saltStepper.run();
   shrimpStepper.run();
 
-  // 3️⃣ Other non-blocking tasks
-  CurrentWeight = readScale();
-  Temperature = readTemperature();
-  Humidity = readHumidity();
+  // // 3️⃣ Other non-blocking tasks
+  // CurrentWeight = readScale();
+  // Temperature = readTemperature();
+  // Humidity = readHumidity();
 
-  Serial.print("Weight: ");
-  Serial.print(CurrentWeight, 2);
-  Serial.print(" g\t");
-  Serial.print("Temp: ");
-  Serial.print(Temperature, 2);
-  Serial.print(" C\t");
-  Serial.print("Humidity: ");
-  Serial.println(Humidity, 2);
-
-  // 4️⃣ Main controller tasks
-  // mainController();
-
-  // 5️⃣ Optional small delay for loop timing (non-blocking)
-  delay(10);
+  // Serial.print("Weight: ");
+  // Serial.print(CurrentWeight, 2);
+  // Serial.print(" g\t");
+  // Serial.print("Temp: ");
+  // Serial.print(Temperature, 2);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity: ");
+  // Serial.println(Humidity, 2);
 }
