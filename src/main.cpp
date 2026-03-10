@@ -182,6 +182,29 @@ void buttonOff()
   // IsWaiting = true;
 }
 
+void testStepper()
+{
+  // Main control logic for the Alamang Mega MK3
+  // Read sensors, control stepper motors, and manage timing for mixing
+  if (saltStepper.distanceToGo() == 0)
+  {
+    saltStepper.move(-10000); // Move to target position for salt
+  }
+  else
+  {
+    saltStepper.run();
+  }
+
+  if (shrimpStepper.distanceToGo() == 0)
+  {
+    shrimpStepper.move(-10000); // Move to target position for shrimp
+  }
+  else
+  {
+    shrimpStepper.run();
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -195,14 +218,10 @@ void setup()
   pinMode(HEATER_RELAY_PIN, OUTPUT);
   digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
 
-  shrimpStepper.setSpeed(1000);       // set speed for shrimp stepper
-  saltStepper.setSpeed(1000);         // set speed for salt stepper
-  shrimpStepper.setAcceleration(500); // set acceleration for shrimp stepper
-  saltStepper.setAcceleration(500);   // set acceleration for salt stepper
-  saltStepper.setCurrentPosition(0);
-  shrimpStepper.setCurrentPosition(0);
-  saltStepper.moveTo(1000);   // example target
-  shrimpStepper.moveTo(1000); // example target
+  shrimpStepper.setMaxSpeed(1000);
+  saltStepper.setMaxSpeed(1000);
+  shrimpStepper.setAcceleration(500);
+  saltStepper.setAcceleration(500);
 
   pushButton.begin(buttonOn, buttonOff);
   heaterSwitch.begin(turnOnHeater, turnOffHeater);
@@ -298,12 +317,14 @@ void mainController()
 
 void loop()
 {
-  pushButton.listen();
-  heaterSwitch.listen();
-  saltStepper.run();
-  shrimpStepper.run();
+  // pushButton.listen();
+  // heaterSwitch.listen();
+  // saltStepper.run();
+  // shrimpStepper.run();
 
-  // // 3️⃣ Other non-blocking tasks
+  testStepper();
+
+  // // Other non-blocking tasks
   // CurrentWeight = readScale();
   // Temperature = readTemperature();
   // Humidity = readHumidity();
