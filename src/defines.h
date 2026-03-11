@@ -17,7 +17,8 @@
 #define SCALE_DAT_PIN 7
 #define MOTOR_PWM_PIN 8
 #define HEATER_RELAY_PIN 9
-#define DHT_PIN 18
+#define DHT_PIN1 4
+#define DHT_PIN2 5
 #define DHT_TYPE DHT22
 
 #define SCALE_OFFSET 96462
@@ -30,6 +31,9 @@
 #define STEPPER_SHRIMP_PUL_PIN 49
 #define STEPPER_SALT_DIR_PIN 50
 #define STEPPER_SALT_PUL_PIN 51
+#define SALT_MICROSTEPS 16
+#define SHRIMP_MICROSTEPS 16
+#define STEPS_PER_REV 200
 
 #define LCD_I2C_ADDR 0x27
 #define LCD_COLS 20
@@ -38,9 +42,6 @@
 #define BUTTON_PIN 19
 <<<<<<< Updated upstream
 #define DEBOUNCE_TIME 50
-=======
-#define DEBOUNCE_TIME 20
 #define LONG_PRESS_TIME 1000
 
->>>>>>> Stashed changes
 #define HEATER_SWITCH_PIN 18
