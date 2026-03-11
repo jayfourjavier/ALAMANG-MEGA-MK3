@@ -10,20 +10,29 @@ private:
     unsigned long lastInterrupt;
     uint16_t debounceTime;
 
+    // Feedback variables
+    uint8_t _feedbackPin;
+    unsigned long feedbackTimeout;
+    const uint16_t feedbackDuration = 1000; // 1 second as requested
+
     void (*onCallback)();
     void (*offCallback)();
 
-    // Support for multiple instances (e.g., Heater and a Safety Switch)
     static ToggleSwitchISR *instances[4];
     static uint8_t instanceCount;
 
-    // The shared ISR wrapper
     static void isrWrapper()
     {
         for (uint8_t i = 0; i < instanceCount; i++)
         {
             instances[i]->changedFlag = true;
         }
+    }
+
+    void triggerFeedback()
+    {
+        digitalWrite(_feedbackPin, HIGH);
+        feedbackTimeout = millis() + feedbackDuration;
     }
 
 public:
@@ -33,6 +42,8 @@ public:
           currentState(false),
           lastInterrupt(0),
           debounceTime(debounce),
+          _feedbackPin(LED_BUILTIN), // Default feedback
+          feedbackTimeout(0),
           onCallback(nullptr),
           offCallback(nullptr)
     {
@@ -42,12 +53,21 @@ public:
         }
     }
 
+    void setFeedbackPin(uint8_t pin)
+    {
+        digitalWrite(_feedbackPin, LOW); // Clean up old pin
+        _feedbackPin = pin;
+        pinMode(_feedbackPin, OUTPUT);
+        digitalWrite(_feedbackPin, LOW);
+    }
+
     void begin(void (*onCb)(), void (*offCb)())
     {
         onCallback = onCb;
         offCallback = offCb;
 
-        pinMode(pin, INPUT); // Assumes external pull-down
+        pinMode(pin, INPUT);
+        pinMode(_feedbackPin, OUTPUT); // Ensure feedback pin is output
         currentState = digitalRead(pin);
 
         attachInterrupt(digitalPinToInterrupt(pin), isrWrapper, CHANGE);
@@ -55,20 +75,26 @@ public:
 
     void listen()
     {
-        // If the ISR hasn't flagged a change, do nothing
+        // 1. Handle non-blocking feedback timer
+        if (feedbackTimeout > 0 && millis() >= feedbackTimeout)
+        {
+            digitalWrite(_feedbackPin, LOW);
+            feedbackTimeout = 0;
+        }
+
+        // 2. Handle Switch logic
         if (!changedFlag)
             return;
 
         unsigned long now = millis();
-        // Debounce: Only process if enough time has passed since the last change
         if (now - lastInterrupt >= debounceTime)
         {
             bool latestRead = digitalRead(pin);
 
-            // If the state has actually settled into a different value
             if (latestRead != currentState)
             {
                 currentState = latestRead;
+                triggerFeedback(); // Trigger 1s pulse on state change
 
                 if (currentState && onCallback)
                 {
@@ -80,13 +106,12 @@ public:
                 }
             }
             lastInterrupt = now;
-            changedFlag = false; // Reset flag after processing
+            changedFlag = false;
         }
     }
 
     bool getState() { return currentState; }
 };
 
-// Initialize static members
 ToggleSwitchISR *ToggleSwitchISR::instances[4] = {nullptr};
 uint8_t ToggleSwitchISR::instanceCount = 0;
