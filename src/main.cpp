@@ -1,12 +1,13 @@
 #include <Arduino.h>
 #include <HX711.h>
 #include <DHT.h>
+#include <AccelStepper.h>
+#include <lcd.h>
 #include <defines.h>
 #include <secrets.h>
-
-// try to test pull requests
-
-// #define RATIO (SALT / ALAMANG)  // COMPUTE RATIO BASED ON ALAMANG AND SALT WEIGHTS FROM TRIAL
+#include <ToggleButton.h>
+#include <ToggleSwitchISR.h>
+#include <StepperHelper.h>
 
 #define RATIO .5 // OR DEFINE EXPLICITLY IN CODE
 
@@ -25,7 +26,14 @@ bool IsMixing = false;
 bool IsHeating = false;
 
 HX711 myScale;
-DHT dht(DHT_PIN, DHT_TYPE);
+DHT dht1(DHT_PIN1, DHT_TYPE);
+DHT dht2(DHT_PIN2, DHT_TYPE);
+
+StepperHelper shrimpStepper(STEPPER_SHRIMP_DIR_PIN, STEPPER_SHRIMP_PUL_PIN, SHRIMP_MICROSTEPS, STEPS_PER_REV);
+StepperHelper saltStepper(STEPPER_SALT_DIR_PIN, STEPPER_SALT_PUL_PIN, SALT_MICROSTEPS, STEPS_PER_REV);
+LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
+ToggleButton pushButton(BUTTON_PIN, DEBOUNCE_TIME);
+ToggleSwitchISR heaterSwitch(HEATER_SWITCH_PIN, DEBOUNCE_TIME);
 
 void calibrate()
 {
@@ -119,45 +127,65 @@ void turnOffHeater()
 // Read humidity several times, average valid readings
 float readHumidity(byte validEntries = 5)
 {
-  float sum = 0;
-  byte count = 0;
-
-  for (byte i = 0; i < validEntries; i++)
-  {
-    float h = dht.readHumidity();
-    if (!isnan(h))
-    {
-      sum += h;
-      count++;
-    }
-    delay(200);
-  }
-
-  if (count == 0)
-    return NAN;
-
-  return sum / count;
+  return 0.0;
 }
 float readTemperature(byte validEntries = 5)
 {
-  float sum = 0;
-  byte count = 0;
+  return 0.0;
+}
 
-  for (byte i = 0; i < validEntries; i++)
-  {
-    float t = dht.readTemperature();
-    if (!isnan(t))
-    {
-      sum += t;
-      count++;
-    }
-    delay(200);
-  }
+void buttonOn()
+{
+  Serial.println("PROCESS STARTED");
+  // IsWaiting = false;
+}
 
-  if (count == 0)
-    return NAN;
+void buttonOff()
+{
+  Serial.println("PROCESS ABORTED");
+  // IsWaiting = true;
+}
 
-  return sum / count;
+void testStepper()
+{
+  saltStepper.rotate(1);
+  shrimpStepper.rotate(1);
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println();
+  Serial.println(__FILE__);
+  Serial.print("HX711_LIB_VERSION: ");
+  Serial.println(HX711_LIB_VERSION);
+  Serial.println();
+
+  pinMode(MOTOR_PWM_PIN, OUTPUT);
+  pinMode(HEATER_RELAY_PIN, OUTPUT);
+  digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
+
+  saltStepper.begin(1000, 500);
+  shrimpStepper.begin(1000, 500);
+
+  pushButton.begin(buttonOn, buttonOff);
+  heaterSwitch.begin(turnOnHeater, turnOffHeater);
+
+  dht1.begin();
+  dht2.begin();
+
+  // HX711 must always start
+  myScale.begin(SCALE_DAT_PIN, SCALE_CLK_PIN);
+
+#if !TO_CALIBRATE
+  myScale.set_offset(SCALE_OFFSET);
+  myScale.set_scale(SCALE_CALIBRATION_FACTOR);
+#endif
+
+  lcd.begin();
+  lcd.welcome();
+
+  testStepper();
 }
 
 bool isShrimpEnough()
@@ -268,74 +296,44 @@ void setup()
 
 void loop()
 {
+  pushButton.listen();
+  heaterSwitch.listen();
+  saltStepper.run();
+  shrimpStepper.run();
 
-  digitalWrite(SALT_STEPPER_DIR_PIN, LOW);
-  Serial.println("Moving salt stepper forward...");
+  // testStepper();
 
-  byte pulseInterval = 1; // milliseconds, adjust as needed for speed
+  // float temp1 = dht1.readTemperature();
+  // float hum1 = dht1.readHumidity();
+  // Serial.print("Temp1: ");
+  // Serial.print(temp1);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity1: ");
+  // Serial.print(hum1);
+  // Serial.print(" %");
 
-  for (int i = 0; i < 200; i++)
-  {
-    Serial.println("HIGH \t Step: " + String(i));
-    digitalWrite(SALT_STEPPER_PUL_PIN, HIGH);
-    delay(pulseInterval);
-    digitalWrite(SALT_STEPPER_PUL_PIN, LOW);
-    delay(pulseInterval);
-  }
+  // float temp2 = dht2.readTemperature();
+  // float hum2 = dht2.readHumidity();
+  // Serial.print(" \t | Temp2: ");
+  // Serial.print(temp2);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity2: ");
+  // Serial.print(hum2);
+  // Serial.println(" %");
 
-  Serial.println("Moving salt stepper backward...");
-  digitalWrite(SALT_STEPPER_DIR_PIN, HIGH);
+  // delay(1000);
 
-  for (int i = 0; i < 200; i++)
-  {
-    Serial.println("LOW \t Step: " + String(i));
-    digitalWrite(SALT_STEPPER_PUL_PIN, HIGH);
-    delay(pulseInterval);
-    digitalWrite(SALT_STEPPER_PUL_PIN, LOW);
-    delay(pulseInterval);
-  }
+  // // Other non-blocking tasks
+  // CurrentWeight = readScale();
+  // Temperature = readTemperature();
+  // Humidity = readHumidity();
 
-  return;
-
-#if TO_CALIBRATE
-  calibrate();
-  return; // stop after calibration
-#endif
-
-  CurrentWeight = readScale();
-  Temperature = readTemperature();
-  Humidity = readHumidity();
-
-  Serial.print("Weight: ");
-  Serial.print(CurrentWeight, 2);
-  Serial.print(" g");
-  Serial.print(" \t| Temperature: ");
-  Serial.print(Temperature, 2);
-  Serial.print(" °C, \t| Humidity: ");
-  Serial.print(Humidity, 2);
-  Serial.print(" %");
-
-  Serial.print(" \t | SHRIMP WT: ");
-  ShrimpWeight = CurrentWeight;
-  Serial.print(ShrimpWeight, 2);
-  Serial.print(" g");
-
-  SaltWeight = ShrimpWeight * RATIO;
-  Serial.print("\t SALT WT: ");
-  Serial.print(SaltWeight, 2);
-  Serial.println(" g");
-
-  delay(1000);
-
-  // turnOnMixer();
-  // delay(5000);
-  // turnOffMixer();
-  // delay(5000);
-
-  // turnOnHeater();
-  // delay(5000);
-  // turnOffHeater();
-  // delay(5000);
-
-  mainController();
+  // Serial.print("Weight: ");
+  // Serial.print(CurrentWeight, 2);
+  // Serial.print(" g\n");
+  // Serial.print("Temp: ");
+  // Serial.print(Temperature, 2);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity: ");
+  // Serial.println(Humidity, 2);
 }
