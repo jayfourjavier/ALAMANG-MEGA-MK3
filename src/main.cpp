@@ -7,10 +7,7 @@
 #include <secrets.h>
 #include <ToggleButton.h>
 #include <ToggleSwitchISR.h>
-
-// try to test pull requests
-
-// #define RATIO (SALT / ALAMANG)  // COMPUTE RATIO BASED ON ALAMANG AND SALT WEIGHTS FROM TRIAL
+#include <StepperHelper.h>
 
 #define RATIO .5 // OR DEFINE EXPLICITLY IN CODE
 
@@ -29,10 +26,11 @@ bool IsMixing = false;
 bool IsHeating = false;
 
 HX711 myScale;
-DHT dht(DHT_PIN, DHT_TYPE);
+DHT dht1(DHT_PIN1, DHT_TYPE);
+DHT dht2(DHT_PIN2, DHT_TYPE);
 
-AccelStepper shrimpStepper(1, STEPPER_SHRIMP_PUL_PIN, STEPPER_SHRIMP_DIR_PIN);
-AccelStepper saltStepper(1, STEPPER_SALT_PUL_PIN, STEPPER_SALT_DIR_PIN);
+StepperHelper shrimpStepper(STEPPER_SHRIMP_DIR_PIN, STEPPER_SHRIMP_PUL_PIN, SHRIMP_MICROSTEPS, STEPS_PER_REV);
+StepperHelper saltStepper(STEPPER_SALT_DIR_PIN, STEPPER_SALT_PUL_PIN, SALT_MICROSTEPS, STEPS_PER_REV);
 LCDHelper lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
 ToggleButton pushButton(BUTTON_PIN, DEBOUNCE_TIME);
 ToggleSwitchISR heaterSwitch(HEATER_SWITCH_PIN, DEBOUNCE_TIME);
@@ -129,45 +127,11 @@ void turnOffHeater()
 // Read humidity several times, average valid readings
 float readHumidity(byte validEntries = 5)
 {
-  float sum = 0;
-  byte count = 0;
-
-  for (byte i = 0; i < validEntries; i++)
-  {
-    float h = dht.readHumidity();
-    if (!isnan(h))
-    {
-      sum += h;
-      count++;
-    }
-    delay(200);
-  }
-
-  if (count == 0)
-    return NAN;
-
-  return sum / count;
+  return 0.0;
 }
 float readTemperature(byte validEntries = 5)
 {
-  float sum = 0;
-  byte count = 0;
-
-  for (byte i = 0; i < validEntries; i++)
-  {
-    float t = dht.readTemperature();
-    if (!isnan(t))
-    {
-      sum += t;
-      count++;
-    }
-    delay(200);
-  }
-
-  if (count == 0)
-    return NAN;
-
-  return sum / count;
+  return 0.0;
 }
 
 void buttonOn()
@@ -184,25 +148,8 @@ void buttonOff()
 
 void testStepper()
 {
-  // Main control logic for the Alamang Mega MK3
-  // Read sensors, control stepper motors, and manage timing for mixing
-  if (saltStepper.distanceToGo() == 0)
-  {
-    saltStepper.move(-10000); // Move to target position for salt
-  }
-  else
-  {
-    saltStepper.run();
-  }
-
-  if (shrimpStepper.distanceToGo() == 0)
-  {
-    shrimpStepper.move(-10000); // Move to target position for shrimp
-  }
-  else
-  {
-    shrimpStepper.run();
-  }
+  saltStepper.rotate(1);
+  shrimpStepper.rotate(1);
 }
 
 void setup()
@@ -218,15 +165,14 @@ void setup()
   pinMode(HEATER_RELAY_PIN, OUTPUT);
   digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
 
-  shrimpStepper.setMaxSpeed(1000);
-  saltStepper.setMaxSpeed(1000);
-  shrimpStepper.setAcceleration(500);
-  saltStepper.setAcceleration(500);
+  saltStepper.begin(1000, 500);
+  shrimpStepper.begin(1000, 500);
 
   pushButton.begin(buttonOn, buttonOff);
   heaterSwitch.begin(turnOnHeater, turnOffHeater);
 
-  dht.begin();
+  dht1.begin();
+  dht2.begin();
 
   // HX711 must always start
   myScale.begin(SCALE_DAT_PIN, SCALE_CLK_PIN);
@@ -238,6 +184,8 @@ void setup()
 
   lcd.begin();
   lcd.welcome();
+
+  testStepper();
 }
 
 bool isShrimpEnough()
@@ -317,12 +265,32 @@ void mainController()
 
 void loop()
 {
-  // pushButton.listen();
-  // heaterSwitch.listen();
-  // saltStepper.run();
-  // shrimpStepper.run();
+  pushButton.listen();
+  heaterSwitch.listen();
+  saltStepper.run();
+  shrimpStepper.run();
 
-  testStepper();
+  // testStepper();
+
+  // float temp1 = dht1.readTemperature();
+  // float hum1 = dht1.readHumidity();
+  // Serial.print("Temp1: ");
+  // Serial.print(temp1);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity1: ");
+  // Serial.print(hum1);
+  // Serial.print(" %");
+
+  // float temp2 = dht2.readTemperature();
+  // float hum2 = dht2.readHumidity();
+  // Serial.print(" \t | Temp2: ");
+  // Serial.print(temp2);
+  // Serial.print(" C\t");
+  // Serial.print("Humidity2: ");
+  // Serial.print(hum2);
+  // Serial.println(" %");
+
+  // delay(1000);
 
   // // Other non-blocking tasks
   // CurrentWeight = readScale();
@@ -331,7 +299,7 @@ void loop()
 
   // Serial.print("Weight: ");
   // Serial.print(CurrentWeight, 2);
-  // Serial.print(" g\t");
+  // Serial.print(" g\n");
   // Serial.print("Temp: ");
   // Serial.print(Temperature, 2);
   // Serial.print(" C\t");
