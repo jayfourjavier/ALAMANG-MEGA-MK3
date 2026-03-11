@@ -1,76 +1,97 @@
 #pragma once
 #include <Arduino.h>
+#include <OneButton.h>
 
 class ToggleButton
 {
 private:
-    uint8_t pin;
-    volatile bool pressedFlag;
-    volatile unsigned long lastInterrupt;
+    OneButton button;
     bool state;
-    uint16_t debounceTime;
+    uint8_t _feedbackPin;
+    unsigned long feedbackTimeout;
+    const uint16_t feedbackDuration = 150;
 
     void (*onCallback)();
     void (*offCallback)();
 
-    // AVR only: static array to handle multiple buttons
-    static ToggleButton *instances[6];
-    static uint8_t instanceCount;
-
-    // ISR wrapper for AVR
-    static void isrWrapper()
+    void triggerFeedback()
     {
-        for (uint8_t i = 0; i < instanceCount; i++)
+        digitalWrite(_feedbackPin, HIGH);
+        feedbackTimeout = millis() + feedbackDuration;
+    }
+
+    static void handleClick(void *scope)
+    {
+        ToggleButton *self = static_cast<ToggleButton *>(scope);
+        if (!self->state)
         {
-            ToggleButton *btn = instances[i];
-            unsigned long now = millis();
-            if (now - btn->lastInterrupt >= btn->debounceTime)
-            {
-                if (digitalRead(btn->pin) == HIGH)
-                { // only trigger on press
-                    btn->lastInterrupt = now;
-                    btn->pressedFlag = true;
-                }
-            }
+            self->state = true;
+            self->triggerFeedback();
+            if (self->onCallback)
+                self->onCallback();
+        }
+    }
+
+    static void handleLongPressStop(void *scope)
+    {
+        ToggleButton *self = static_cast<ToggleButton *>(scope);
+        if (self->state)
+        {
+            self->state = false;
+            self->triggerFeedback();
+            if (self->offCallback)
+                self->offCallback();
         }
     }
 
 public:
-    inline ToggleButton(uint8_t p, uint16_t debounce = 50)
-        : pin(p), pressedFlag(false), lastInterrupt(0),
-          state(false), debounceTime(debounce),
+    // Constructor initializes the default feedback pin immediately
+    ToggleButton(uint8_t p, uint16_t debounce = 50)
+        : button(p, false, false), state(false),
+          _feedbackPin(LED_BUILTIN), feedbackTimeout(0),
           onCallback(nullptr), offCallback(nullptr)
     {
-        instances[instanceCount++] = this;
+        button.setDebounceMs(debounce);
+        button.setPressMs(1000);
+
+        // Ensure the default pin (LED_BUILTIN) is ready even if setFeedbackPin is never called
+        pinMode(_feedbackPin, OUTPUT);
+        digitalWrite(_feedbackPin, LOW);
     }
 
-    // begin and attach callbacks
-    inline void begin(void (*onCb)(), void (*offCb)())
+    void setFeedbackPin(uint8_t pin)
+    {
+        // Turn off old pin before switching
+        digitalWrite(_feedbackPin, LOW);
+
+        _feedbackPin = pin;
+        pinMode(_feedbackPin, OUTPUT);
+        digitalWrite(_feedbackPin, LOW);
+    }
+
+    void begin(void (*onCb)(), void (*offCb)(), void (*isrFunc)() = nullptr)
     {
         onCallback = onCb;
         offCallback = offCb;
-        pinMode(pin, INPUT); // assume external pulldown
-        attachInterrupt(digitalPinToInterrupt(pin), isrWrapper, RISING);
+        button.attachClick(handleClick, this);
+        button.attachLongPressStop(handleLongPressStop, this);
     }
 
-    // call frequently in loop
-    inline void listen()
+    void listen()
     {
-        if (!pressedFlag)
-            return;
-        pressedFlag = false;
+        button.tick();
 
-        state = !state; // toggle on press
-
-        if (state && onCallback)
-            onCallback();
-        else if (!state && offCallback)
-            offCallback();
+        // Handle the pulse duration for the feedback pin
+        if (feedbackTimeout > 0)
+        {
+            if (millis() >= feedbackTimeout)
+            {
+                digitalWrite(_feedbackPin, LOW);
+                feedbackTimeout = 0;
+            }
+        }
     }
 
-    inline bool getState() { return state; }
+    void setState(bool s) { state = s; }
+    bool getState() { return state; }
 };
-
-// static members
-ToggleButton *ToggleButton::instances[6] = {nullptr};
-uint8_t ToggleButton::instanceCount = 0;

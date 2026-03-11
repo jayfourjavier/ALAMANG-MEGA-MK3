@@ -36,5 +36,11 @@
 #define LCD_ROWS 4
 
 #define BUTTON_PIN 19
+<<<<<<< Updated upstream
 #define DEBOUNCE_TIME 50
+=======
+#define DEBOUNCE_TIME 20
+#define LONG_PRESS_TIME 1000
+
+>>>>>>> Stashed changes
 #define HEATER_SWITCH_PIN 18
