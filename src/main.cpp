@@ -263,37 +263,6 @@ void mainController()
   }
 }
 
-#define SALT_STEPPER_DIR_PIN 50
-#define SALT_STEPPER_PUL_PIN 51
-
-void setup()
-{
-  Serial.begin(9600);
-  Serial.println();
-  Serial.println(__FILE__);
-  Serial.print("HX711_LIB_VERSION: ");
-  Serial.println(HX711_LIB_VERSION);
-  Serial.println();
-
-  pinMode(MOTOR_PWM_PIN, OUTPUT);
-  pinMode(HEATER_RELAY_PIN, OUTPUT);
-  digitalWrite(HEATER_RELAY_PIN, HIGH); // turn off heater
-  pinMode(SALT_STEPPER_DIR_PIN, OUTPUT);
-  pinMode(SALT_STEPPER_PUL_PIN, OUTPUT);
-
-  turnOnHeater();
-
-  dht.begin();
-
-  // HX711 must always start
-  myScale.begin(SCALE_DAT_PIN, SCALE_CLK_PIN);
-
-#if !TO_CALIBRATE
-  myScale.set_offset(SCALE_OFFSET);
-  myScale.set_scale(SCALE_CALIBRATION_FACTOR);
-#endif
-}
-
 void loop()
 {
   pushButton.listen();
