@@ -301,8 +301,6 @@ void loop()
   saltStepper.run();
   shrimpStepper.run();
 
-  lcd.printVariables(Temperature, Humidity);
-
   // testStepper();
 
   // float temp1 = dht1.readTemperature();
