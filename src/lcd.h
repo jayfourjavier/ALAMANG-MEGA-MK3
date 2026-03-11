@@ -79,6 +79,19 @@ public:
         lcd.print(message);
     }
 
+    /*
+    Print temperature and humidity values on the LCD last row
+    */
+    inline void printVariables(float temperature, float humidity)
+    {
+        lcd.setCursor(0, rows - 1);
+        lcd.print("Temp: ");
+        lcd.print(temperature, 1);
+        lcd.print("C  Hum: ");
+        lcd.print(humidity, 1);
+        lcd.print("%");
+    }
+
     inline void welcome()
     {
 
