@@ -2,7 +2,7 @@
 #include <HX711.h>
 #include <DHT.h>
 #include <AccelStepper.h>
-#include <lcd.h>
+#include <LcdHelper.h>
 #include <defines.h>
 #include <secrets.h>
 #include <ToggleButton.h>

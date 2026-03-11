@@ -1,5 +1,3 @@
-// ToggleSwitchISR.h
-
 #pragma once
 #include <Arduino.h>
 
@@ -8,33 +6,23 @@ class ToggleSwitchISR
 private:
     uint8_t pin;
     volatile bool changedFlag;
-    volatile bool currentState;
-    volatile unsigned long lastInterrupt;
+    bool currentState;
+    unsigned long lastInterrupt;
     uint16_t debounceTime;
 
     void (*onCallback)();
     void (*offCallback)();
 
-    static ToggleSwitchISR *instance;
+    // Support for multiple instances (e.g., Heater and a Safety Switch)
+    static ToggleSwitchISR *instances[4];
+    static uint8_t instanceCount;
 
+    // The shared ISR wrapper
     static void isrWrapper()
     {
-        if (!instance)
-            return;
-
-        unsigned long now = millis();
-
-        if (now - instance->lastInterrupt < instance->debounceTime)
-            return;
-
-        instance->lastInterrupt = now;
-
-        bool state = digitalRead(instance->pin);
-
-        if (state != instance->currentState)
+        for (uint8_t i = 0; i < instanceCount; i++)
         {
-            instance->currentState = state;
-            instance->changedFlag = true;
+            instances[i]->changedFlag = true;
         }
     }
 
@@ -48,7 +36,10 @@ public:
           onCallback(nullptr),
           offCallback(nullptr)
     {
-        instance = this;
+        if (instanceCount < 4)
+        {
+            instances[instanceCount++] = this;
+        }
     }
 
     void begin(void (*onCb)(), void (*offCb)())
@@ -56,7 +47,7 @@ public:
         onCallback = onCb;
         offCallback = offCb;
 
-        pinMode(pin, INPUT); // external pulldown
+        pinMode(pin, INPUT); // Assumes external pull-down
         currentState = digitalRead(pin);
 
         attachInterrupt(digitalPinToInterrupt(pin), isrWrapper, CHANGE);
@@ -64,30 +55,38 @@ public:
 
     void listen()
     {
+        // If the ISR hasn't flagged a change, do nothing
         if (!changedFlag)
             return;
 
-        noInterrupts();
-        bool state = currentState;
-        changedFlag = false;
-        interrupts();
+        unsigned long now = millis();
+        // Debounce: Only process if enough time has passed since the last change
+        if (now - lastInterrupt >= debounceTime)
+        {
+            bool latestRead = digitalRead(pin);
 
-        if (state)
-        {
-            if (onCallback)
-                onCallback();
-        }
-        else
-        {
-            if (offCallback)
-                offCallback();
+            // If the state has actually settled into a different value
+            if (latestRead != currentState)
+            {
+                currentState = latestRead;
+
+                if (currentState && onCallback)
+                {
+                    onCallback();
+                }
+                else if (!currentState && offCallback)
+                {
+                    offCallback();
+                }
+            }
+            lastInterrupt = now;
+            changedFlag = false; // Reset flag after processing
         }
     }
 
-    bool getState()
-    {
-        return currentState;
-    }
+    bool getState() { return currentState; }
 };
 
-ToggleSwitchISR *ToggleSwitchISR::instance = nullptr;
+// Initialize static members
+ToggleSwitchISR *ToggleSwitchISR::instances[4] = {nullptr};
+uint8_t ToggleSwitchISR::instanceCount = 0;

@@ -40,7 +40,6 @@
 #define LCD_ROWS 4
 
 #define BUTTON_PIN 19
-<<<<<<< Updated upstream
 #define DEBOUNCE_TIME 50
 #define LONG_PRESS_TIME 1000
 
