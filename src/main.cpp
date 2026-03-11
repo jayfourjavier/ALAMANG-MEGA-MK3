@@ -270,7 +270,7 @@ void loop()
   saltStepper.run();
   shrimpStepper.run();
 
-  testStepper();
+  // testStepper();
 
   // float temp1 = dht1.readTemperature();
   // float hum1 = dht1.readHumidity();
