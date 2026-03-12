@@ -247,7 +247,7 @@ bool isSaltEnough()
 
 float getTargetSaltWeight()
 {
-  return TargetShrimpWeight * RATIO;
+  return ShrimpWeight * RATIO;
 }
 
 void shrimpController()
@@ -408,6 +408,10 @@ void mainController()
 
 void loop()
 {
+#if (TO_CALIBRATE)
+  calibrate();
+  return;
+#endif
 
   pushButton.listen();
   heaterSwitch.listen();
@@ -415,7 +419,6 @@ void loop()
   shrimpStepper.run();
 
   GetWeight();
-
   mainController();
 
   // Only print twice a second
