@@ -11,19 +11,31 @@
 
 #define RATIO .5 // OR DEFINE EXPLICITLY IN CODE
 
-float CurrentWeight = 0.0;
-float SaltWeight = 0.0;
-float ShrimpWeight = 0.0;
 float Humidity = 0.0;
 float Temperature = 0.0;
 
 float TargetShrimpWeight = 1000.0; // target weight of shrimp in grams, adjust as needed
+float TargetSaltWeight = 0.0;      // target weight of salt in grams, adjust as needed
 
-bool IsWaiting = false;
+bool IsWaitingToStart = true;
+bool IsProcessStarted = false;
 bool IsAddingSalt = false;
 bool IsAddingShrimp = false;
 bool IsMixing = false;
+bool IsMixerOn = false;
 bool IsHeating = false;
+bool GotTargetSaltWeight = false;
+bool ShrimpAdded = false;
+bool SaltAdded = false;
+bool AbortProcess = false;
+unsigned long lastPrintTime = 0;
+
+float WeightCurrentValue = 0.0;
+float SaltWeight = 0.0;
+float ShrimpWeight = 0.0;
+float WeightSampleSum = 0;
+int WeightSampleCount = 0;
+unsigned long WeightLastAverageTime = 0;
 
 HX711 myScale;
 DHT dht1(DHT_PIN1, DHT_TYPE);
@@ -136,20 +148,51 @@ float readTemperature(byte validEntries = 5)
 
 void buttonOn()
 {
-  Serial.println("PROCESS STARTED");
-  // IsWaiting = false;
+  Serial.println("START BUTTON PRESSED");
+  IsWaitingToStart = false;
 }
 
 void buttonOff()
 {
-  Serial.println("PROCESS ABORTED");
-  // IsWaiting = true;
+  Serial.println("STOP BUTTON PRESSED");
+  IsWaitingToStart = true;
+  AbortProcess = true;
+  // IsWaitingToStart = true;
 }
 
 void testStepper()
 {
   saltStepper.rotate(1);
   shrimpStepper.rotate(1);
+}
+
+void GetWeight()
+{
+  if (myScale.is_ready())
+  {
+    float currentSample = myScale.get_units(1);            // get_units(1) automatically applies OFFSET and SCALE factor
+    if (currentSample > -5000.0 && currentSample < 5000.0) // perform data sanity check
+    {
+      WeightSampleSum += currentSample; // Note: WeightSampleSum should be float now
+      WeightSampleCount++;
+    }
+  }
+
+  if (millis() - WeightLastAverageTime >= 1000)
+  {
+    if (WeightSampleCount > 0)
+    {
+      WeightCurrentValue = (float)WeightSampleSum / WeightSampleCount;
+    }
+    else
+    {
+      Serial.println("CRITICAL: Weight Sensor Not Responding!");
+    }
+
+    WeightSampleSum = 0;
+    WeightSampleCount = 0;
+    WeightLastAverageTime = millis();
+  }
 }
 
 void setup()
@@ -168,6 +211,12 @@ void setup()
   saltStepper.begin(1000, 500);
   shrimpStepper.begin(1000, 500);
 
+  if (digitalRead(HEATER_SWITCH_PIN))
+  {
+    Serial.println("HEATER SWITCH IS ON POSITION");
+    turnOnHeater();
+  }
+
   pushButton.begin(buttonOn, buttonOff);
   heaterSwitch.begin(turnOnHeater, turnOffHeater);
 
@@ -184,125 +233,222 @@ void setup()
 
   lcd.begin();
   lcd.welcome();
-
-  testStepper();
 }
 
 bool isShrimpEnough()
 {
-  return CurrentWeight >= TargetShrimpWeight;
+  return ShrimpWeight >= TargetShrimpWeight;
 }
 
 bool isSaltEnough()
 {
-  return SaltWeight >= (TargetShrimpWeight * RATIO);
+  return SaltWeight >= TargetSaltWeight;
 }
 
-void addShrimp()
+float getTargetSaltWeight()
 {
-  Serial.println("Adding shrimp...");
-  // Code to control hardware for adding shrimp goes here
-  Serial.println("Shrimp added.");
+  return TargetShrimpWeight * RATIO;
 }
 
-void addSalt()
+void shrimpController()
 {
-  Serial.println("Adding salt...");
-  // Code to control hardware for adding salt goes here
-  Serial.println("Salt added.");
+  if (ShrimpAdded)
+  {
+    return;
+  }
+
+  if (!IsAddingShrimp)
+  {
+    return;
+  }
+
+  ShrimpWeight = WeightCurrentValue;
+
+  if (!isShrimpEnough())
+  {
+    if (!shrimpStepper.isRotating())
+    {
+      Serial.println("Adding shrimp...");
+      shrimpStepper.rotate(SHRIMP_ROTATE_PER_CYCLE); // Rotate a small amount to add shrimp, adjust as needed
+    }
+  }
+  else
+  {
+    shrimpStepper.stop();
+    IsAddingShrimp = false;
+    ShrimpAdded = true;
+    Serial.println("Target shrimp weight reached.");
+  }
+}
+
+void saltController()
+{
+  if (!ShrimpAdded)
+    return;
+  if (SaltAdded)
+    return;
+
+  if (!GotTargetSaltWeight)
+  {
+    TargetSaltWeight = getTargetSaltWeight(); // Ensure target salt weight is updated based on shrimp weight
+    GotTargetSaltWeight = true;
+    Serial.println("TARGET SALT WEIGHT IS COMPUTED");
+  }
+
+  SaltWeight = WeightCurrentValue - ShrimpWeight;
+  if (!isSaltEnough())
+  {
+    if (!saltStepper.isRotating())
+    {
+      saltStepper.rotate(SALT_ROTATE_PER_CYCLE);
+    }
+  }
+  else
+  {
+    shrimpStepper.stop();
+    IsAddingSalt = false;
+    Serial.println("Target salt weight reached.");
+    SaltAdded = true;
+  }
+}
+
+void mixerController()
+{
+  if (IsMixerOn)
+  {
+    return;
+  }
+  turnOnMixer();
+  IsMixerOn = true;
+}
+
+void abortProcess()
+{
+  //
+  Serial.println("PROCESS CANCELLED BY USER");
+  AbortProcess = false;
+  IsAddingShrimp = false;
+  IsAddingSalt = false;
+
+  ShrimpAdded = false;
+  SaltAdded = false;
+
+  ShrimpWeight = 0.0;
+  SaltWeight = 0.0;
+  TargetSaltWeight = 0.0;
+
+  if (shrimpStepper.isRotating())
+  {
+    shrimpStepper.stop();
+  }
+  if (saltStepper.isRotating())
+  {
+    saltStepper.stop();
+  }
+
+  turnOffMixer();
+
+  // S
 }
 
 void mainController()
 {
-  if (IsWaiting)
+  if (AbortProcess)
   {
-    // Handle waiting state
-    // UPDATE LCD TO SHOW WAITING STATUS
-    // lcdPrintActivity("PLACE CONTAINER AND PRESS START");
+    abortProcess();
     return;
+  }
+
+  if (IsWaitingToStart)
+  {
+    return;
+  }
+
+  if (!IsProcessStarted)
+  {
+    Serial.println("PROCESS INITIATED.");
+    IsProcessStarted = true;
   }
   else
   {
-    // ADD SHRIMP
-    if (!isShrimpEnough())
+    if (!IsAddingShrimp && !isShrimpEnough())
     {
-      if (!IsAddingShrimp)
-      {
-        IsAddingShrimp = true;
-        addShrimp();
-        IsAddingShrimp = false;
-      }
-      return; // wait until shrimp is enough before proceeding
+      IsAddingShrimp = true;
     }
 
-    // ADD SALT
-    if (!isSaltEnough())
+    if (isShrimpEnough() && !IsAddingSalt)
     {
-      if (!IsAddingSalt)
-      {
-        IsAddingSalt = true;
-        addSalt();
-        IsAddingSalt = false;
-      }
-      return; // wait until salt is enough before proceeding
+      IsAddingSalt = true;
     }
 
-    if (!IsMixing && isShrimpEnough() && isSaltEnough())
+    if (ShrimpAdded && SaltAdded)
     {
       IsMixing = true;
-      turnOnMixer();
-      // delay for mixing duration, adjust as needed
-      delay(5000);
-      turnOffMixer();
-      IsMixing = false;
     }
+  }
 
-    // MIX
+  // 1. Add shrimp until target weight is reached. Calculate target salt weight based on ratio.
+  if (IsAddingShrimp)
+  {
+    shrimpController();
+  }
 
-    // HEAT
+  // 2. Add salt until target weight is reached
+  if (IsAddingSalt)
+  {
+    saltController();
+  }
+
+  // 3. Start mixer for defined duration
+  if (IsMixing)
+  {
+    mixerController();
   }
 }
 
 void loop()
 {
+
   pushButton.listen();
   heaterSwitch.listen();
   saltStepper.run();
   shrimpStepper.run();
 
-  // testStepper();
+  GetWeight();
 
-  // float temp1 = dht1.readTemperature();
-  // float hum1 = dht1.readHumidity();
-  // Serial.print("Temp1: ");
-  // Serial.print(temp1);
-  // Serial.print(" C\t");
-  // Serial.print("Humidity1: ");
-  // Serial.print(hum1);
-  // Serial.print(" %");
+  mainController();
 
-  // float temp2 = dht2.readTemperature();
-  // float hum2 = dht2.readHumidity();
-  // Serial.print(" \t | Temp2: ");
-  // Serial.print(temp2);
-  // Serial.print(" C\t");
-  // Serial.print("Humidity2: ");
-  // Serial.print(hum2);
-  // Serial.println(" %");
+  // Only print twice a second
+  if (millis() - lastPrintTime >= 500)
+  {
+    Serial.print("STATUS: ");
+    Serial.print(IsWaitingToStart ? "WAITING" : "RUNNING");
+    Serial.print(" | ADDING SHRIMP : ");
+    Serial.print(IsAddingShrimp ? "YES" : "NO ");
+    Serial.print(" | ADDING SALT : ");
+    Serial.print(IsAddingSalt ? "YES" : "NO ");
+    Serial.print(" | MIXING : ");
+    Serial.print(IsMixing ? "ON " : "OFF");
+    Serial.print(" || \t|| HEATER : ");
+    Serial.print(heaterSwitch.getState() ? "ON " : "OFF");
 
-  // delay(1000);
+    // DISPLAY WEIGHT
+    // WeightCurrentValue = readScale();
 
-  // // Other non-blocking tasks
-  // CurrentWeight = readScale();
-  // Temperature = readTemperature();
-  // Humidity = readHumidity();
+    // format SHRIMP: (CURRENT/TARGET)g AND SALT: (CURRENT/TARGET)g
+    // variable names: SaltWeight, ShrimpWeight, TargetShrimpWeight, TargetSaltWeight
+    Serial.print("|| \t|| SCALE WEIGHT: ");
+    Serial.print(WeightCurrentValue, 2);
+    Serial.print(" g  | SHRIMP: (");
+    Serial.print(ShrimpWeight, 2);
+    Serial.print("/");
+    Serial.print(TargetShrimpWeight, 2);
+    Serial.print(")g | SALT: (");
+    Serial.print(SaltWeight, 2);
+    Serial.print("/");
+    Serial.print(TargetSaltWeight, 2);
+    Serial.println(")g");
 
-  // Serial.print("Weight: ");
-  // Serial.print(CurrentWeight, 2);
-  // Serial.print(" g\n");
-  // Serial.print("Temp: ");
-  // Serial.print(Temperature, 2);
-  // Serial.print(" C\t");
-  // Serial.print("Humidity: ");
-  // Serial.println(Humidity, 2);
+    lastPrintTime = millis();
+  }
 }

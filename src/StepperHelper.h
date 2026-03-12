@@ -14,6 +14,7 @@ private:
     uint16_t stepsPerRev;
 
     long targetSteps;
+    bool _wasRotating; // Internal flag to detect the moment it stops
 
 public:
     // Constructor
@@ -23,7 +24,8 @@ public:
           pulPin(pul),
           microstep(micro),
           stepsPerRev(baseSteps),
-          targetSteps(0)
+          targetSteps(0),
+          _wasRotating(false)
     {
     }
 
@@ -34,40 +36,50 @@ public:
         stepper.setMinPulseWidth(5);
     }
 
-    // compute real steps per revolution
     inline long getStepsPerRev()
     {
         return (long)stepsPerRev * microstep;
     }
 
-    // rotate given revolutions (non-blocking)
     inline void rotate(float rev)
     {
         long steps = rev * getStepsPerRev();
         targetSteps = stepper.currentPosition() + steps;
         stepper.moveTo(targetSteps);
+        _wasRotating = true; // Mark that we have started a movement
     }
 
-    // rotate degrees
     inline void rotateDeg(float deg)
     {
         rotate(deg / 360.0);
     }
 
-    // call inside loop()
     inline void run()
     {
         stepper.run();
     }
 
-    inline bool isRunning()
+    // Returns true if the motor is currently moving to a target
+    inline bool isRotating()
     {
         return stepper.distanceToGo() != 0;
+    }
+
+    // Returns true ONLY at the moment the rotation finishes
+    inline bool isDone()
+    {
+        if (_wasRotating && stepper.distanceToGo() == 0)
+        {
+            _wasRotating = false; // Reset the latch
+            return true;
+        }
+        return false;
     }
 
     inline void stop()
     {
         stepper.stop();
+        _wasRotating = false;
     }
 
     inline void setSpeed(float speed)
@@ -88,5 +100,6 @@ public:
     inline void resetPosition()
     {
         stepper.setCurrentPosition(0);
+        _wasRotating = false;
     }
 };
