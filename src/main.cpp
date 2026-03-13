@@ -574,6 +574,8 @@ void loop()
       lcd.printOnCenter(2, "MIXER : " + formatMillis(MixerOnEllapsed));
     }
 
+    lcd.printVariables(Temperature, Humidity);
+
     Serial.print("\n");
     lastPrintTime = millis();
 

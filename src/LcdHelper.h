@@ -96,7 +96,7 @@ public:
     */
     inline void printVariables(float temperature, float humidity)
     {
-        lcd.setCursor(0, 2); // Using Row 2 to avoid conflict with activityRow (1)
+        lcd.setCursor(0, 0); // Using Row 2 to avoid conflict with activityRow (1)
         lcd.print("T: ");
         lcd.print(temperature, 1);
         lcd.write(223); // Degree symbol for LCD
@@ -111,7 +111,8 @@ public:
         {
         case ABORT:
             printOnCenter(activityRow, "PROCESS CANCELLED");
-            printOnCenter(3, "                     ");
+            printOnCenter(2, "                     ");
+            printOnCenter(3, "PRESS START BUTTON");
             break;
         case WAITING:
             printOnCenter(activityRow, "WAITING");
