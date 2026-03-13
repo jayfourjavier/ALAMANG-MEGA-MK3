@@ -9,11 +9,13 @@ class LCDHelper
 public:
     enum Activity
     {
-        IDLE,
-        WEIGHING,
+        WAITING,
+        ADDING_SHRIMP,
         ADDING_SALT,
-        MIXING,
-        DRYING,
+        MIXER_ON,
+        MIXER_OFF,
+        HEATER_ON,
+        HEATER_OFF,
         DONE,
         ERROR
     };
@@ -106,28 +108,32 @@ public:
         switch (activity)
         {
 
-        case IDLE:
-            printOnCenter(rows - 1, "IDLE");
+        case WAITING:
+            printOnCenter(rows - 1, "WAITING");
             break;
 
-        case WEIGHING:
-            printOnCenter(rows - 1, "WEIGHING");
+        case ADDING_SHRIMP:
+            printOnCenter(rows - 1, "ADDING SHRIMP");
             break;
 
         case ADDING_SALT:
             printOnCenter(rows - 1, "ADDING SALT");
             break;
 
-        case MIXING:
+        case MIXER_ON:
             printOnCenter(rows - 1, "MIXING");
             break;
 
-        case DRYING:
-            printOnCenter(rows - 1, "DRYING");
+        case MIXER_OFF:
+            printOnCenter(rows - 1, "PROCESS DONE");
             break;
 
-        case DONE:
-            printOnCenter(rows - 1, "PROCESS DONE");
+        case HEATER_ON:
+            printOnCenter(rows - 1, "HEATER IS ON");
+            break;
+
+        case HEATER_OFF:
+            printOnCenter(rows - 1, "HEATER IS OFF");
             break;
 
         case ERROR:
