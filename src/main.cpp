@@ -277,6 +277,8 @@ void setup()
 
   lcd.begin();
   lcd.welcome();
+
+  lcd.printActivity(LCDHelper::WAITING);
 }
 
 bool isShrimpEnough()
@@ -296,6 +298,7 @@ float getTargetSaltWeight()
 
 void shrimpController()
 {
+
   if (IsShrimpAdded)
   {
     return;
@@ -443,6 +446,8 @@ void mainController()
 {
   if (AbortProcess)
   {
+    lcd.printActivity(LCDHelper::WAITING);
+    lcd.printActivity(LCDHelper::ABORT);
     abortProcess();
     return;
   }
@@ -454,6 +459,7 @@ void mainController()
   {
     Serial.println("PROCESS INITIATED.");
     Serial.println("ADDING SHRIMP NOW");
+    lcd.printActivity(LCDHelper::ADDING_SHRIMP);
     IsProcessStarted = true;
     IsAddingShrimp = true;
     IsShrimpAdded = false;
@@ -464,6 +470,7 @@ void mainController()
   // 2. PHASE TRANSITIONS (The Logic Gate)
   if (IsShrimpAdded && !IsSaltAdded && !IsAddingSalt && !IsMixing)
   {
+    lcd.printActivity(LCDHelper::ADDING_SALT);
     IsAddingShrimp = false;
     IsAddingSalt = true;
     Serial.println("SHRIMP IS ADDED. ADDING SALT NOW.");
@@ -471,6 +478,7 @@ void mainController()
 
   if (IsSaltAdded && !IsMixingDone && !IsMixing)
   {
+    lcd.printActivity(LCDHelper::MIXER_ON);
     IsAddingSalt = false;
     IsMixing = true;
     Serial.println("SHRIMP AND SALT ADDED. MIXING NOW.");
@@ -487,6 +495,7 @@ void mainController()
   // 4. COMPLETION
   if (IsMixingDone)
   {
+    lcd.printActivity(LCDHelper::DONE);
     completeProcess();
   }
 }
@@ -561,9 +570,20 @@ void loop()
       Serial.print("\t|| MIXER ELLAPSED: ");
       Serial.print(formatMillis(MixerOnEllapsed));
       Serial.print(" ||");
+
+      lcd.printOnCenter(2, "MIXER : " + formatMillis(MixerOnEllapsed));
     }
 
     Serial.print("\n");
     lastPrintTime = millis();
+
+    if (IsAddingShrimp)
+    {
+      lcd.printOnCenter(2, "SHRIMP : " + String(ShrimpWeight));
+    }
+    if (IsAddingSalt)
+    {
+      lcd.printOnCenter(2, "SALT : " + String(SaltWeight));
+    }
   }
 }

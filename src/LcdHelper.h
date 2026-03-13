@@ -9,6 +9,7 @@ class LCDHelper
 public:
     enum Activity
     {
+        ABORT,
         WAITING,
         ADDING_SHRIMP,
         ADDING_SALT,
@@ -24,6 +25,7 @@ private:
     LiquidCrystal_I2C lcd;
     uint8_t cols;
     uint8_t rows;
+    uint8_t activityRow = 1;
 
     inline String toCaps(String msg)
     {
@@ -81,63 +83,72 @@ public:
         lcd.print(message);
     }
 
-    /*
-    Print temperature and humidity values on the LCD last row
-    */
-    inline void printVariables(float temperature, float humidity)
-    {
-        lcd.setCursor(0, rows - 1);
-        lcd.print("Temp: ");
-        lcd.print(temperature, 1);
-        lcd.print("C  Hum: ");
-        lcd.print(humidity, 1);
-        lcd.print("%");
-    }
-
     inline void welcome()
     {
 
         lcd.clear();
         printOnCenter(0, "ALAMANG MK3");
-        printOnCenter(1, "SYSTEM READY");
+        printOnCenter(activityRow, "SYSTEM READY");
+    }
+
+    /*
+    Print temperature and humidity values on Row 2
+    */
+    inline void printVariables(float temperature, float humidity)
+    {
+        lcd.setCursor(0, 2); // Using Row 2 to avoid conflict with activityRow (1)
+        lcd.print("T: ");
+        lcd.print(temperature, 1);
+        lcd.write(223); // Degree symbol for LCD
+        lcd.print("C  H: ");
+        lcd.print(humidity, 1);
+        lcd.print("% ");
     }
 
     inline void printActivity(Activity activity)
     {
-
         switch (activity)
         {
-
+        case ABORT:
+            printOnCenter(activityRow, "PROCESS CANCELLED");
+            printOnCenter(3, "                     ");
+            break;
         case WAITING:
-            printOnCenter(rows - 1, "WAITING");
+            printOnCenter(activityRow, "WAITING");
+            printOnCenter(3, "PRESS START BUTTON");
             break;
-
         case ADDING_SHRIMP:
-            printOnCenter(rows - 1, "ADDING SHRIMP");
+            printOnCenter(activityRow, "ADDING SHRIMP");
+            printOnCenter(3, "LONG PRESS CANCEL ");
             break;
-
         case ADDING_SALT:
-            printOnCenter(rows - 1, "ADDING SALT");
+            printOnCenter(activityRow, "ADDING SALT");
+            printOnCenter(3, "LONG PRESS CANCEL ");
             break;
-
         case MIXER_ON:
-            printOnCenter(rows - 1, "MIXING");
+            printOnCenter(activityRow, "MIXING");
+            printOnCenter(3, "LONG PRESS CANCEL ");
             break;
-
         case MIXER_OFF:
-            printOnCenter(rows - 1, "PROCESS DONE");
+            printOnCenter(activityRow, "PROCESS DONE");
+            printOnCenter(3, "      ---       ");
             break;
-
         case HEATER_ON:
-            printOnCenter(rows - 1, "HEATER IS ON");
+            printOnCenter(activityRow, "HEATER IS ON");
             break;
-
         case HEATER_OFF:
-            printOnCenter(rows - 1, "HEATER IS OFF");
+            printOnCenter(activityRow, "HEATER IS OFF");
             break;
-
+        case DONE:
+            printOnCenter(activityRow, "BATCH COMPLETE");
+            printOnCenter(2, "REMOVE PRODUCT");
+            printOnCenter(3, "PRESS START BUTTON");
+            break;
         case ERROR:
-            printOnCenter(rows - 1, "SYSTEM ERROR");
+            printOnCenter(activityRow, "SYSTEM ERROR");
+            break;
+        default:
+            Serial.println("INVALID ACTIVITY"); // Fixed missing quote
             break;
         }
     }
